@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from sofascore_api import SofaScoreClient
 import os
+import difflib
 
 app = FastAPI(title="Sofascore Momentum")
 
@@ -20,7 +21,7 @@ class MatchByNameRequest(BaseModel):
 class FixturesRequest(BaseModel):
     fixtures: list
 
-# ================== TEAM ID SEARCH ==================
+# ================== TEAM ID SEARCH (your original) ==================
 def search_team_id(team_name: str) -> int:
     results = client.search(team_name)
     
@@ -72,7 +73,7 @@ def get_match_by_team_ids(home_team_id: int, away_team_id: int, date: str):
     except Exception as e:
         return {"success": False, "error": str(e)}
 
-# ================== ENDPOINTS ==================
+# ================== ENDPOINTS (your original + new) ==================
 @app.post("/get")
 def get(req: MatchRequest):
     return get_match_by_team_ids(req.home_team_id, req.away_team_id, req.date)
@@ -99,4 +100,4 @@ def health():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
