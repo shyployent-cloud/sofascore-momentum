@@ -11,7 +11,7 @@ client = SofaScoreClient()
 class MatchRequest(BaseModel):
     home: str
     away: str
-    date: str   # Required for reliability
+    date: str   # Required for reliable results (as per API docs)
 
 @app.post("/get-match")
 def get_match(req: MatchRequest):
@@ -39,12 +39,11 @@ def find_match(home: str, away: str, date: str):
         for event in events:
             h = event.get("homeTeam", {}).get("name", "").lower()
             a = event.get("awayTeam", {}).get("name", "").lower()
-            if (difflib.SequenceMatcher(None, home, h).ratio() > 0.75 and
-                difflib.SequenceMatcher(None, away, a).ratio() > 0.75):
+            if (difflib.SequenceMatcher(None, home, h).ratio() > 0.8 and
+                difflib.SequenceMatcher(None, away, a).ratio() > 0.8):
                 return event["id"], event.get("customId", "")
     except:
         pass
-    
     return None, None
 
 @app.get("/")
