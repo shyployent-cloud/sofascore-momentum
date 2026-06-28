@@ -17,6 +17,9 @@ class MatchByNameRequest(BaseModel):
 class FixturesRequest(BaseModel):
     fixtures: list
 
+class ParseRequest(BaseModel):
+    text: str
+
 def search_team_id(team_name: str) -> int:
     results = client.search(team_name)
     
@@ -39,6 +42,41 @@ def search_team_id(team_name: str) -> int:
             return item["entity"]["id"]
     
     return football_teams[0]["entity"]["id"]
+
+@app.get("/get-team-id")
+def get_team_id(name: str):
+    try:
+        results = client.search(name)
+        
+        if not isinstance(results, list):
+            return {"success": False, "error": "Unexpected format"}
+        
+        football_teams = [
+            r for r in results
+            if r.get("type") == "team"
+            and r.get("entity", {}).get("sport", {}).get("slug") == "football"
+            and r.get("entity", {}).get("gender") == "M"
+        ]
+        
+        if not football_teams:
+            return {"success": False, "error": f"No football team found for: {name}"}
+        
+        for item in football_teams:
+            if item["entity"].get("name", "").lower() == name.lower():
+                return {
+                    "success": True,
+                    "team_name": name,
+                    "team_id": item["entity"]["id"]
+                }
+        
+        return {
+            "success": True,
+            "team_name": name,
+            "team_id": football_teams[0]["entity"]["id"]
+        }
+    
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 @app.post("/get-team-ids-from-fixtures")
 def get_team_ids_from_fixtures(req: FixturesRequest):
@@ -123,38 +161,23 @@ def get_match(req: MatchRequest):
     except Exception as e:
         return {"success": False, "error": str(e)}
 
-@app.get("/get-team-id")
-def get_team_id(name: str):
+@app.post("/parse-teams")
+def parse_teams(req: ParseRequest):
     try:
-        results = client.search(name)
+        home_team = ""
+        away_team = ""
         
-        if not isinstance(results, list):
-            return {"success": False, "error": "Unexpected format"}
-        
-        football_teams = [
-            r for r in results
-            if r.get("type") == "team"
-            and r.get("entity", {}).get("sport", {}).get("slug") == "football"
-            and r.get("entity", {}).get("gender") == "M"
-        ]
-        
-        if not football_teams:
-            return {"success": False, "error": f"No football team found for: {name}"}
-        
-        for item in football_teams:
-            if item["entity"].get("name", "").lower() == name.lower():
-                return {
-                    "success": True,
-                    "team_name": name,
-                    "team_id": item["entity"]["id"]
-                }
+        for line in req.text.split("\n"):
+            if line.startswith("HOME_TEAM:"):
+                home_team = line.replace("HOME_TEAM:", "").strip()
+            if line.startswith("AWAY_TEAM:"):
+                away_team = line.replace("AWAY_TEAM:", "").strip()
         
         return {
             "success": True,
-            "team_name": name,
-            "team_id": football_teams[0]["entity"]["id"]
+            "home_team": home_team,
+            "away_team": away_team
         }
-    
     except Exception as e:
         return {"success": False, "error": str(e)}
 
