@@ -2,7 +2,6 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from sofascore_api import SofaScoreClient
 import os
-import difflib
 
 app = FastAPI(title="Sofascore Momentum")
 
@@ -12,7 +11,7 @@ client = SofaScoreClient()
 class MatchRequest(BaseModel):
     home_team_id: int
     away_team_id: int
-    date: str   # Added for reliable match lookup
+    date: str
 
 class MatchByNameRequest(BaseModel):
     home_team_name: str
@@ -76,7 +75,6 @@ def get_match_by_team_ids(home_team_id: int, away_team_id: int, date: str):
 # ================== ENDPOINTS ==================
 @app.post("/get")
 def get(req: MatchRequest):
-    # Your original logic here (kept as placeholder)
     return get_match_by_team_ids(req.home_team_id, req.away_team_id, req.date)
 
 @app.post("/get-by-name")
@@ -93,7 +91,6 @@ def get_by_name(req: MatchByNameRequest):
 
 @app.post("/fixtures")
 def fixtures(req: FixturesRequest):
-    # Your fixtures logic
     return {"status": "Fixtures endpoint still works"}
 
 @app.get("/")
