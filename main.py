@@ -21,7 +21,7 @@ def get_match(req: MatchRequest):
     if not match_id:
         return {"success": False, "error": "Match not found - add date"}
 
-    embed_url = f"https://widgets.sofascore.com/embed/attackMomentum?id={match_id}&widgetTheme=light"
+    embed_url = f"https://widgets.sofascore.com/embed/attackMomentum?id={match_id}&widgetTheme=dark"
 
     return {
         "success": True,
@@ -29,7 +29,7 @@ def get_match(req: MatchRequest):
         "home": req.home,
         "away": req.away,
         "embed_url": embed_url,   # <-- This is the new line you wanted
-        "embed_html": f'<iframe width="100%" height="286" src="{embed_url}" frameborder="0" scrolling="no"></iframe>'
+        "embed_html": f'<iframe width="100%" height="286" src="{embed_url}" frameborder="1" scrolling="no"></iframe>'
     }
 
 @app.get("/")
