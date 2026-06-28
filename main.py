@@ -9,60 +9,51 @@ app = FastAPI(title="Sofascore Momentum API")
 client = SofaScoreClient()
 
 class MatchRequest(BaseModel):
-    home_team: str = None
-    away_team: str = None
-    home_id: int = None
-    away_id: int = None
+    home: str = None          # Can be name or ID (as string)
+    away: str = None
     date: str = None
 
-def find_match(home_team=None, away_team=None, home_id=None, away_id=None, date=None):
-    print(f"DEBUG: home_team={home_team}, home_id={home_id}, away_team={away_team}, away_id={away_id}, date={date}")
+def find_match(home=None, away=None, date=None):
+    print(f"DEBUG: home='{home}', away='{away}', date={date}")
     
-    # Use IDs if provided
-    if home_id:
+    home_str = str(home).strip() if home else ""
+    away_str = str(away).strip() if away else ""
+    
+    # Try ID first if numeric
+    if home_str.isdigit():
         try:
+            home_id = int(home_str)
             events = client.get_team_events(home_id, direction="last")
             for event in events:
-                a_id = event.get("awayTeam", {}).get("id")
-                if a_id and (away_id is None or a_id == away_id):
-                    if away_team:
-                        a_name = event.get("awayTeam", {}).get("name", "").lower()
-                        if away_team.lower() in a_name or a_name in away_team.lower():
-                            return event["id"], event
-                    else:
-                        return event["id"], event
-        except Exception as e:
-            print("ID error:", str(e))
-    
-    # Name fallback (existing logic)
-    if home_team and away_team:
-        # ... keep previous name search if needed
-        pass
-    
-    return None, "No match found"
-
-@app.post("/get-match")
-def get_match(req: MatchRequest):
-    match_id, data = find_match(req.home_team, req.away_team, req.home_id, req.away_id, req.date)
-    if match_id:
-        try:
-            graph = client.get_event_graph(match_id)
-            momentum = graph.get("graphPoints", [])
+                a_name = event.get("awayTeam", {}).get("name", "").lower()
+                if away_str.lower() in a_name or a_name in away_str.lower():
+                    return event["id"], event
         except:
-            momentum = []
-        return {
-            "success": True,
-            "match_id": match_id,
-            "home": data.get("homeTeam", {}).get("name") if data else "Unknown",
-            "away": data.get("awayTeam", {}).get("name") if data else "Unknown",
-            "momentum_points": momentum
-        }
-    return {"success": False, "error": data}
-
-@app.get("/")
-def health():
-    return {"status": "ok"}
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
+            pass
+    
+    # Name-based search
+    if home_str and away_str:
+        if date:
+            try:
+                events = client.get_events_by_date("football", date)
+                for event in events:
+                    h_name = event.get("homeTeam", {}).get("name", "").lower()
+                    a_name = event.get("awayTeam", {}).get("name", "").lower()
+                    if (difflib.SequenceMatcher(None, home_str.lower(), h_name).ratio() > 0.7 and
+                        difflib.SequenceMatcher(None, away_str.lower(), a_name).ratio() > 0.7):
+                        return event["id"], event
+            except:
+                pass
+        
+        # Team search fallback
+        search_results = client.search(home_str)
+        team_id = None
+        for r in search_results:
+            entity = r.get("entity", {})
+            if entity.get("type") == "team":
+                team_id = entity.get("id")
+                break
+        if team_id:
+            events = client.get_team_events(team_id, direction="last")
+            for event in events:
+                h_name
