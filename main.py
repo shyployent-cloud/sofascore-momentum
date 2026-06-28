@@ -11,7 +11,7 @@ client = SofaScoreClient()
 class MatchRequest(BaseModel):
     home_team: str
     away_team: str
-    date: str = None  # Optional: YYYY-MM-DD
+    date: str = None
 
 def find_match(home_team: str, away_team: str, date: str = None):
     home_input = home_team.strip()
@@ -19,33 +19,28 @@ def find_match(home_team: str, away_team: str, date: str = None):
     home = home_input.lower()
     away = away_input.lower()
     
-    print(f"DEBUG: Searching for '{home_input}' vs '{away_input}'")  # helps in logs
+    print(f"DEBUG: Searching '{home_input}' vs '{away_input}' | Date: {date}")
     
-    # 1. Try date-based search first
+    # Primary: Search by date if provided
     if date:
         try:
             events = client.get_events_by_date("football", date)
+            print(f"DEBUG: Found {len(events)} events on {date}")
             for event in events:
                 h_name = event.get("homeTeam", {}).get("name", "")
                 a_name = event.get("awayTeam", {}).get("name", "")
                 h_ratio = difflib.SequenceMatcher(None, home, h_name.lower()).ratio()
                 a_ratio = difflib.SequenceMatcher(None, away, a_name.lower()).ratio()
-                if h_ratio > 0.7 and a_ratio > 0.7:
-                    print(f"DEBUG: Found match on date: {h_name} vs {a_name}")
+                print(f"DEBUG: Checking {h_name} vs {a_name} - ratios {h_ratio:.2f}/{a_ratio:.2f}")
+                if h_ratio > 0.65 and a_ratio > 0.65:
+                    print("DEBUG: MATCH FOUND!")
                     return event["id"], event
         except Exception as e:
-            print("DEBUG: Date search error:", str(e))
+            print("DEBUG: Date error:", str(e))
     
-    # 2. Search for home team with variations
-    variations = [
-        home_input,
-        home_input + " national",
-        home_input + " national team",
-        home_input + " u23",
-        home_input + " u21"
-    ]
+    # Fallback: Team search
+    variations = [home_input, home_input + " national", home_input + " national team"]
     team_id = None
-    found_name = None
     for var in variations:
         try:
             search_results = client.search(var)
@@ -53,7 +48,6 @@ def find_match(home_team: str, away_team: str, date: str = None):
                 entity = r.get("entity", {})
                 if entity.get("type") == "team":
                     team_id = entity.get("id")
-                    found_name = entity.get("name")
                     print(f"DEBUG: Found team ID {team_id} for '{var}'")
                     break
             if team_id:
@@ -62,23 +56,20 @@ def find_match(home_team: str, away_team: str, date: str = None):
             continue
     
     if not team_id:
-        return None, f"Home team '{home_input}' not found after variations"
+        return None, f"Home team '{home_input}' not found"
     
-    # 3. Get matches for that team
     try:
         events = client.get_team_events(team_id, direction="last")
         for event in events:
             h_name = event.get("homeTeam", {}).get("name", "")
             a_name = event.get("awayTeam", {}).get("name", "")
-            h_ratio = difflib.SequenceMatcher(None, home, h_name.lower()).ratio()
-            a_ratio = difflib.SequenceMatcher(None, away, a_name.lower()).ratio()
-            if h_ratio > 0.7 and a_ratio > 0.7:
-                print(f"DEBUG: Matched {h_name} vs {a_name}")
+            if (difflib.SequenceMatcher(None, home, h_name.lower()).ratio() > 0.65 and
+                difflib.SequenceMatcher(None, away, a_name.lower()).ratio() > 0.65):
                 return event["id"], event
     except Exception as e:
         print("DEBUG: Team events error:", str(e))
     
-    return None, f"No matching match found for {home_input} vs {away_input}"
+    return None, f"No match found for {home_input} vs {away_input}"
 
 @app.post("/get-match")
 def get_match(req: MatchRequest):
@@ -100,9 +91,8 @@ def get_match(req: MatchRequest):
 
 @app.get("/")
 def health():
-    return {"status": "ok", "message": "Sofascore Momentum API is running"}
+    return {"status": "ok"}
 
-# For local testing
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
